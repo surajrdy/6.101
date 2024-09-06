@@ -20,40 +20,56 @@ def backwards(sound):
     Returns:
         A new mono sound dictionary with the samples in reversed order
     """
-    raise NotImplementedError
+    sound1 = {"rate": sound["rate"], "samples": sound["samples"][::-1]}
+
+    return sound1
 
 
 def mix(sound1, sound2, p):
+    """
+    Returns a new sound containing the mix of two different sounds controled 
+    by the mixing parameter
 
+    Args:
+        sound1: a dictionary representing the first sound
+        sound2: a dictionary representing the second sound
+        p: the mixing parameter which is between 0 and 1 inclusively 
 
+    Returns:
+        A new mono sound dictionary with the mixed sound
+    """
     # mix 2 good sounds
-    if ("rate" in sound1)==False or ("rate" in sound2)==False or (sound1["rate"]==sound2["rate"])==False:
+    if (
+        "rate" not in sound1 or "rate" not in sound2
+        or sound1["rate"] != sound2["rate"]
+    ):
 
         print("no")
-        return
+        return None
 
-    r=sound1["rate"]# get rate
-    sound1=sound1["samples"]
-    sound2=sound2["samples"]
-    if len(sound1)<len(sound2):l=len(sound1)
-    elif len(sound2)<len(sound1):l=len(sound2)
-    elif len(sound1)==len(sound2):l=len(sound1)
+    r = sound1["rate"]  # get rate
+    sound1 = sound1["samples"]
+    sound2 = sound2["samples"]
+    if len(sound1) < len(sound2):
+        leng = len(sound1)
+    elif len(sound2) < len(sound1):
+        leng = len(sound2)
+    elif len(sound1) == len(sound2):
+        leng = len(sound1)
     else:
         print("whoops")
-        return
+        return None
 
-    s  = []
-    x  =  0
-    while x<=l:
-        s2,s1 = p*sound1[x], sound2[x]*(1 - p)
-        s.append(s1+s2)# add sounds
-        x+= 1
-        if x ==l:# end
+    samps = []
+    x = 0
+    while x <= leng:
+        s2, s1 = p * sound1[x], sound2[x] * (1 - p)
+        samps.append(s1 + s2)  # add sounds
+        x += 1
+        if x == leng:  # end
             break
 
-
-
-    return {"rate": r, "samples": s}# return new sound
+    return {"rate": r, "samples": samps}  # return new sound
 
 
 def echo(sound, num_echoes, delay, scale):
@@ -175,10 +191,14 @@ if __name__ == "__main__":
     # sounds/hello.wav, rather than just as hello.wav, to account for the
     # sound files being in a different directory than this file):
 
-    print("Loading hello file...")
-    hello = load_wav("sounds/hello.wav")
+    #print("Loading mystery file...")
+    #hello = load_wav("sounds/mystery.wav")
 
-    # write_wav(backwards(hello), "hello_reversed.wav")
+    #write_wav(backwards(hello), "mystery_reversed.wav")
 
+    print("Loading mystery file...")
+    synth = load_wav("sounds/synth.wav")
+    water = load_wav("sounds/water.wav")
+    p = 0.2
 
-
+    write_wav(mix(synth, water, p), "synth_water_mixed.wav")
