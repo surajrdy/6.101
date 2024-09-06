@@ -86,15 +86,81 @@ def echo(sound, num_echoes, delay, scale):
     Returns:
         A new mono sound dictionary resulting from applying the echo effect.
     """
-    raise NotImplementedError
+
+    # Relevant variables for inner-functions in the echo function
+    sample_delay = round(delay * sound['rate'])
+    original = sound["samples"][:]
+    max_output = len(original) + (num_echoes * sample_delay)
+    output = max_output * [0]
+    #For loop to copy over the original input samples into our new memory area
+    for i, var in enumerate(original):
+        output[i] = var
+
+    #Usage of an iteration variable to calculate the individual delays for the echoes
+    echo_count = 1
+    while echo_count <= num_echoes:
+        #Offset of when to start the addition of new scaled samples
+        offset = echo_count * sample_delay
+        specific_scale = scale ** echo_count
+        #considers the original sample length w/o 0s and finds the offset index
+        for i, var in enumerate(original):
+            off_i = i + offset
+            #off_i will  never be larger than the length of the maximum output.
+            output[off_i] += specific_scale * var
+        echo_count += 1
+    return {"rate": sound["rate"], "samples": output}
 
 
 def pan(sound):
-    raise NotImplementedError
+    """
+    Compute a pan version of stereo sound where we modify/scale 
+    the left and right samples
 
+    Args:
+        sound: a dictionary representing the original mono sound
 
+    Returns:
+        A new stereo sound dictionary resulting from applying the pan effect.
+    """
+    example = sound["left"]
+    length = len(example)
+    l_copy = length * [0]
+    r_copy = length * [0]
+    for i, var in enumerate(sound["left"]):
+        scale = 1 - i/(length-1)
+        if i == 0:
+            l_copy[i] = var
+        elif i == len(l_copy) - 1:
+            l_copy[i] = 0
+        else:
+            l_copy[i] = var * scale
+    for i, var in enumerate(sound["right"]):
+        scale = i/(length-1)
+        if i == 0:
+            r_copy[i] = 0
+        elif i == len(r_copy) - 1:
+            r_copy[i] = var
+        else:
+            r_copy[i] = var * scale
+    return {"rate": sound["rate"], "left": l_copy, "right": r_copy}
 def remove_vocals(sound):
-    raise NotImplementedError
+    """
+    Compute a mono version of stereo sound where we remove the vocals from the sound
+
+    Args:
+        sound: a dictionary representing the original mono sound
+
+    Returns:
+        A new mono sound dictionary resulting from applying the remove_vocals effect.
+    """
+    #Initialize the mono_sample list as 0s
+    mono_sample = len(sound["left"]) * [0]
+
+    #Simple for loop for calculating the difference
+    for i in range(len(sound["left"])):
+        mono_sample[i] += sound["left"][i] - sound["right"][i]
+    #Return the mono_sound instead of stereo
+    return {"rate": sound["rate"], "samples": mono_sample}
 
 
 # below are helper functions for converting back-and-forth between WAV files
@@ -197,8 +263,6 @@ if __name__ == "__main__":
     #write_wav(backwards(hello), "mystery_reversed.wav")
 
     print("Loading mystery file...")
-    synth = load_wav("sounds/synth.wav")
-    water = load_wav("sounds/water.wav")
-    p = 0.2
+    mount = load_wav("sounds/lookout_mountain.wav", stereo=True)
 
-    write_wav(mix(synth, water, p), "synth_water_mixed.wav")
+    write_wav(remove_vocals(mount), "lookout_mountain_no_vocals.wav")
