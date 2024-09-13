@@ -10,39 +10,50 @@ import os
 from PIL import Image
 
 # NO ADDITIONAL IMPORTS ALLOWED!
-
-
 def get_pixel(image, row, col, oob):
+    """
+    Returns a single integer pixel value according to the row and column considering the boundary behavior
+
+    Args:
+        image: dictionary containing information of the image with pixels, width, and height
+        row: row of pixel
+        col: column of pixel
+        oob: boundary behavior ("extend", "zero", "wrap")
+
+    Returns:
+        Integer pixel value
+    """
     width = image["width"]
     height = image["height"]
-    #Invalid method of indexing
+    #This is the normal case without considering boundary behavior when the row or col is invalid
     if 0 <= row < height and 0 <= col < width:
         return image["pixels"][row * width + col]
+    #For a zero behavior, return zero
     if oob == "zero":
             return 0
+    #Wrap behavior
     elif oob == "wrap":
         #Modulus can easily determine the new wrap distance
         nrow = row%height
         ncol = col%width
         return image["pixels"][nrow * image["width"] + ncol]
+    #Extend behavior which can be done simply with if and elif statements
     elif oob == "extend":
+        #Rows
         if row < 0:
-            row = 0 #Assumes the row continues forth
+            row = 0 #Assumes the row continues 
         elif row >= height:
             row = height - 1 #Extends to the nearest row value
         
+        #Columns
         if col < 0:
-            col = 0
+            col = 0 #Assumes the column continues 
         elif col >= width:
             col = width - 1 #Extends to the nearest column value
         return image["pixels"][row * width + col]
     return 0
-
-
 def set_pixel(image, row, col, color):
     image["pixels"][row * image["width"] + col] = color
-
-
 def apply_per_pixel(image, func):
     result = {
         "height": image["height"],
@@ -56,14 +67,10 @@ def apply_per_pixel(image, func):
             new_color = func(color)
             set_pixel(result, row, col, new_color)
     return result
-
-
 def inverted(image):
+    #Code originally had 256-color which was incorrect
     return apply_per_pixel(image, lambda color: 255-color)
-
-
 # HELPER FUNCTIONS
-
 def correlate(image, kernel, boundary_behavior):
     """
     Compute the result of correlating the given image with the given kernel.
@@ -86,34 +93,62 @@ def correlate(image, kernel, boundary_behavior):
     DESCRIBE YOUR KERNEL REPRESENTATION HERE
 
     Kernel will be represented as a dictionary of a 2d list of integers as it allows for relatively straight
-    forward indexing and the size of the kernel.
+    forward indexing and the size of the kernel
+
+    Ex. 
+
+    kernel = {
+        "size": 11,
+        "values": [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+    ]
+    }
+
     """
     if boundary_behavior in ["zero", "extend", "wrap"]:
-        kersize = len(kernel["values"])
-        rng = kersize// 2
 
+        #Find kernel size
+        kersize = kernel["size"]
+
+        #Range of kernel which accounts that the indexing will start from the center kernel
+        rng = kersize//2
+
+        #Creating a new output image
         output = {
             "height": image["height"],
             "width": image["width"],
             "pixels": [0] * (image["height"] * image["width"])
         }
         
+        #Looping through the rows and columns
         for row in range(image["height"]):
             for col in range(image["width"]):
+                #Equates to the total float value of using the kernel on each individual pixel 
                 total = 0
+                #Indexing allows for Kernel indexing to begin at center
                 for i in range(-rng ,rng + 1):
                     for j in range(-rng, rng + 1):
+                        #Find pixel from original image which corresponds to where the kernel is being applied
                         color = get_pixel(image, row+i, col+j, boundary_behavior)
                         kernel_val = kernel["values"][rng + i][rng + j]
                         total += kernel_val * color
-                output["pixels"][row * image["width"] + col] = total
+                set_pixel(output, row, col, total)
         return output
-
+    #Edge case where boundary condition is not provided or invalid
     else:
         return None
-    
-
-
 def round_and_clip_image(image):
     """
     Given a dictionary, ensure that the values in the "pixels" list are all
@@ -127,6 +162,7 @@ def round_and_clip_image(image):
     """
     for row in range(image["height"]):
             for col in range(image["width"]):
+                #Want to use the fundamental method to find the pixel_index without using the boundary condition
                 pixel_index = row * image["width"] + col
                 value = round(image["pixels"][pixel_index])
                 if value < 0:
@@ -136,49 +172,118 @@ def round_and_clip_image(image):
                 else:
                     set_pixel(image, row, col, value)
     return image
-
 # FILTERS
-
 def blurred(image, kernel_size):
     """
-    Return a new image representing the result of applying a box blur (with the
-    given kernel size) to the given input image.
+    Returns a blurred image according to a kernel size
 
-    This process should not mutate the input image; rather, it should create a
-    separate structure to represent the output.
+    Args:
+        image: dictionary containing information of the image with pixels, width, and height
+        kernel_size: allows for blur_kernel to take input and find the blur kernel
+
+    Returns:
+        Blurred image
     """
-    # first, create a representation for the appropriate n-by-n kernel (you may
-    # wish to define another helper function for this)
-
+    #Defined helper function
     kernel = blur_kernel(kernel_size)
     new_image = correlate(image, kernel, "extend")
     return round_and_clip_image(new_image)
-    
-
 def blur_kernel(kernel_size):
-    value = 1 / (kernel_size * kernel_size)
+    """
+    Returns a blurred kernel according to a kernel size
+
+    Args:
+        kernel_size: controls the size and values of the kernel
+
+    Returns:
+        Blurred kernel
+    """
+    #Take the float value corresponding to the kernel size as this would add to 1
+    value = 1 / (kernel_size**2)
     kernel = {
         "size": kernel_size,
-        "values": [[value for _ in range(kernel_size)] for _ in range(kernel_size)]}
+        #Constructs a 2D array with list comprehension 
+        "values": [[value for col in range(kernel_size)] for row in range(kernel_size)]}
     return kernel
 def sharpen_kernel(kernel_size):
+    """
+    Returns a sharpened kernel according to a kernel size
+
+    Args:
+        kernel_size: controls the size and values of the kernel
+
+    Returns:
+        Sharp kernel
+    """
+
+    #Extremely similar to blurred but is simply the negative values
     value = 1 / (kernel_size * kernel_size)
     kernel = {
         "size": kernel_size,
-        "values": [[-value for _ in range(kernel_size)] for _ in range(kernel_size)]}
+        "values": [[-value for col in range(kernel_size)] for row in range(kernel_size)]}
     return kernel
 def sharpened(image, kernel_size):
+    """
+    Utilizing the correlate with a kernel method instead of explicit. 
 
+    Returns a sharpened image according to an image and kernel size
+
+    Args:
+        image: dictionary containing information of the image with pixels, width, and height 
+        kernel_size: controls the size and values of the kernel
+
+    Returns:
+        Sharpened image
+    """
+    #Create the blurred image for S_r,c = 2 I_r,c - B_r,c
     sharp_kern = sharpen_kernel(kernel_size)
 
+    #In the equation, we know that the center pixel of the kernel will be 2 minus the kernel size
     cent = kernel_size // 2
-    sharp_kern["values"][cent][cent] = 2 * image[] - (1/(kernel_size**2))
+    sharp_kern["values"][cent][cent] = 2 - (1/(kernel_size**2))
 
     new_image = correlate(image, sharp_kern, "extend")
 
-    return new_image
-# HELPER FUNCTIONS FOR DISPLAYING, LOADING, AND SAVING IMAGES
+    return round_and_clip_image(new_image)
+def edges(image):
+    #Create the initial kernels for the edges which we know can be utilized for all edge images
+    """
+    Returns an image with the edges defined according to an image
 
+    Args:
+        image: dictionary containing information of the image with pixels, width, and height 
+
+    Returns:
+        Edge image
+    """
+    kernel_1 = {
+        "size": 3,
+        "values": [[-1, -2, -1,], [0,  0,  0], [1,  2,  1]],
+    }
+    kernel_2 = {
+        "size": 3,
+        "values": [[-1, 0, 1,], [-2,  0,  2], [-1,  0,  1]],
+    }
+    o_1 = correlate(image, kernel_1, "extend")
+    o_2 = correlate(image, kernel_2, "extend")
+
+    #Create the output image
+    new_img = {
+        "height": image["height"],
+        "width": image["width"],
+        "pixels": [0] * (image["height"] * image["width"])
+    }
+
+    for row in range(image["height"]):
+        for col in range(image["width"]):
+            opixel_1 = get_pixel(o_1, row, col, "extend")
+            opixel_2 = get_pixel(o_2, row, col, "extend")
+
+            #Performing the square root operation
+            new_pixel = ((opixel_1**2)+(opixel_2**2))**(1/2)
+
+            set_pixel(new_img, row, col, new_pixel)
+    return round_and_clip_image(new_img) 
 def print_greyscale_values(image):
     """
     Given a greyscale image dictionary, prints a string representation of the
@@ -279,7 +384,7 @@ if __name__ == "__main__":
     ]
     }
     """
-    image = load_greyscale_image('test_images/python.png')
+    #image = load_greyscale_image('test_images/construct.png')
     #image = {"height": 3, "width": 2, "pixels": [20, 40, 60,  80, 100, 120],}
-    new_image = sharpened(image,11)
-    save_greyscale_image(new_image, 'pythonnew.png', mode = "PNG")
+    #new_image = blurred(image, 11)
+    #save_greyscale_image(new_image, 'newconstruct.png', mode = "PNG")
