@@ -93,7 +93,7 @@ def inverted(image):
         "height": image["height"],
         "width": image["width"],
         "pixels": image["pixels"][:],
-    }
+    }  
     return apply_per_pixel(inverted_img, lambda color: 255 - color)
 
 

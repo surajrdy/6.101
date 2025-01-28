@@ -7,7 +7,6 @@ Image Processing 2
 
 # NO ADDITIONAL IMPORTS!
 # (except in the last part of the lab; see the lab writeup for details)
-import math
 import os
 # import typing  # optional import
 from PIL import Image
@@ -17,6 +16,12 @@ from PIL import Image
 
 # VARIOUS FILTERS
 
+
+def get_width(image):
+    return image["width"]
+
+def get_height(image):
+    return image["height"]
 
 def color_filter_from_greyscale_filter(filt):
     """
@@ -275,7 +280,8 @@ def make_blur_filter(kernel_size):
         kernel = {
             "size": kernel_size,
             # Constructs a 2D array with list comprehension
-            "values": [[value for col in range(kernel_size)] for row in range(kernel_size)],
+            "values": [[value for col in range(kernel_size)] 
+                       for row in range(kernel_size)],
         }
         new_image = correlate(image, kernel, "extend")
         return round_and_clip_image(new_image)
@@ -396,15 +402,14 @@ def seam_carving(image, ncols):
         'width': image['width'],
         'pixels': image['pixels'][:]
     }
-    #i is a useless variable, this is just to loop through the columns
-    for i in range(ncols):
+    #_ is a useless variable, this is just to loop through the columns
+    for _ in range(ncols):
         #Process of seam carving
         new_image = greyscale_image_from_color_image(output_image)
         nrg_img = compute_energy(new_image)
         cem = cumulative_energy_map(nrg_img)
         seam = minimum_energy_seam(cem)
         output_image = image_without_seam(output_image, seam)
-    
     return output_image
 
 
@@ -425,8 +430,8 @@ def greyscale_image_from_color_image(image):
     }
     for var in image["pixels"]:
         #Formula provided by the 6.101 page
-        v = round(.299 * var[0] + .587 * var[1] + .114 * var[2])
-        output["pixels"].append(v)
+        new = round(.299 * var[0] + .587 * var[1] + .114 * var[2])
+        output["pixels"].append(new)
     return output
 def compute_energy(grey):
     """
@@ -454,23 +459,26 @@ def cumulative_energy_map(energy):
 
     for row in range(1, height):
         for col in range(width):
+            #How to find the index
             i = row*width+col
+            #Useful var to store
+            var = row - 1
 
             adj_nrg = []
             #Pixel Above
-            adj_nrg.append(pixels[(row - 1) * width + col])
+            adj_nrg.append(pixels[(var) * width + col])
 
             #Pixel to left
             if col > 0:
-                adj_nrg.append(pixels[(row - 1) * width + (col-1)])
+                adj_nrg.append(pixels[(var) * width + (col-1)])
             #Pixel on the edge cases of the array
             if col < width - 1:
-                adj_nrg.append(pixels[(row - 1) * width + (col+1)])
+                adj_nrg.append(pixels[(var) * width + (col+1)])
 
             #Takes the minimum of the adjacent energies for the column path
             min_adj_nrg = min(adj_nrg)
 
-            pixels[i] = pixels[i] + min_adj_nrg
+            pixels[i] += min_adj_nrg
     output = {
         "height": energy["height"],
         "width": energy["width"],
@@ -493,6 +501,7 @@ def minimum_energy_seam(cem):
     #Starts below top row
     r_start = height - 1
     i_start = [r_start * width + col for col in range(width)]
+    #Bottom row
     btm_row = [pixels[i] for i in i_start]
 
     #Finding the minimum column
@@ -526,6 +535,8 @@ def minimum_energy_seam(cem):
             poss.append((nrg_rgt, curr+1, i_rgt))
 
         #Defining the minimum potential
+
+        #Didn't actually need the key because of the way min works
         min_pot = min(poss, key = lambda x: (x[0], x[1]))
 
         #Updating the variables
@@ -545,11 +556,13 @@ def image_without_seam(image, seam):
     height = image['height']
     pixels = image['pixels']
 
-    new = []
 
+    #New pixels
+    new = []
     #Loops through while considering the deletion column to not add.
     for row in range(height):
         seam_i = seam[row]
+        #Take modulus to find the floored column
         del_col = seam_i % width
         for col in range(width):
             if col != del_col:
@@ -564,15 +577,15 @@ def image_without_seam(image, seam):
 
 def custom_feature(image, exposure_factor):
     """
-    Adjusts the exposure of the given image by scaling pixel intensities.
+    Adjusts the exposure of the given image by scaling pixel with the exposure factor.
 
     Parameters:
         image: The original image to adjust.
-        exposure_factor (float): The factor by which to adjust exposure. 
-        >1 increases brightness, <1 decreases brightness.
+        exposure_factor: The factor by which to adjust exposure. 
+        >1 should increases brightness, while <1 decreases brightness.
 
     Returns:
-        output: A new image dictionary with adjusted exposure.
+        output: Image with the new exposure
     """
     output = {
         "height": image["height"],
@@ -593,7 +606,6 @@ def custom_feature(image, exposure_factor):
 
         output["pixels"][i] = (n_red,n_green,n_blue)
     return output
-    
 # HELPER FUNCTIONS FOR DISPLAYING, LOADING, AND SAVING IMAGES
 
 def print_greyscale_values(image):
@@ -738,7 +750,6 @@ def save_greyscale_image(image, filename, mode="PNG"):
     path, _ = os.path.split(filename)
     if path and not os.path.exists(path):
         os.makedirs(path)
-
     # save image in folder specified (by default the current folder)
     out = Image.new(mode="L", size=(image["width"], image["height"]))
     out.putdata(image["pixels"])
@@ -759,7 +770,6 @@ if __name__ == "__main__":
     #filter1 = color_filter_from_greyscale_filter(edges)
     #filter2 = color_filter_from_greyscale_filter(make_blur_filter(5))
     #filt = filter_cascade([filter1, filter1, filter2, filter1])
-    #img = custom_feature(load_color_image('test_images/twocats.png'), 2)
-    #save_color_image(img, 'test_images/new_cats.png', mode = "PNG")
-    pass
-    
+    img = load_color_image('../r3/flood_input.png')
+    print(get_height(img))
+    print(get_width(img))
